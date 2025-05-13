@@ -2,16 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { 
-  Calendar, 
-  CalendarGrid, 
-  CalendarCell, 
-  CalendarDay, 
-  CalendarMonth, 
-  CalendarHeader,
-  CalendarNav,
-  CalendarViewSelector
-} from '@/components/ui/calendar';
+import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {

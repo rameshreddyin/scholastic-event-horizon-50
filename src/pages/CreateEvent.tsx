@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
@@ -156,13 +157,14 @@ const CreateEvent = () => {
     audienceGroups.includes(sg.group)
   );
   
-  const onSubmit = (data: z.infer<typeof formSchema>, isDraft: boolean = false) => {
+  // Fixed submission handler to correctly handle the isDraft parameter
+  const onSubmit = (data: z.infer<typeof formSchema>, isDraftParam: boolean = false) => {
     // Update draft status
-    const finalData = { ...data, isDraft };
+    const finalData = { ...data, isDraft: isDraftParam };
     console.log('Form submitted:', finalData);
     
-    toast.success(isDraft ? 'Event draft saved successfully' : 'Event created successfully', {
-      description: isDraft ? 'You can edit it later.' : 'The event has been published.',
+    toast.success(isDraftParam ? 'Event draft saved successfully' : 'Event created successfully', {
+      description: isDraftParam ? 'You can edit it later.' : 'The event has been published.',
     });
     
     // Navigate to calendar after successful submission
@@ -902,7 +904,7 @@ const CreateEvent = () => {
           </CardDescription>
         </CardHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
+          <form onSubmit={form.handleSubmit((data) => onSubmit(data, false))}>
             <CardContent className="space-y-6">
               {renderStepContent()}
             </CardContent>
@@ -932,7 +934,7 @@ const CreateEvent = () => {
                   Next
                 </Button>
               ) : (
-                <Button type="button" onClick={() => onSubmit(form.getValues())} className="gap-2">
+                <Button type="button" onClick={() => onSubmit(form.getValues(), false)} className="gap-2">
                   <CalendarPlus className="h-4 w-4" />
                   Create Event
                 </Button>
