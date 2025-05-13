@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfDay, endOfDay, eachDayOfInterval, addDays, isSameMonth, isSameDay } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ import {
   PopoverTrigger
 } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar as CalendarIcon, Filter, CalendarPlus } from 'lucide-react';
+import { Calendar as CalendarIcon, Filter, CalendarPlus, List, ChevronLeft, ChevronRight } from 'lucide-react';
 import { mockEvents } from '@/data/mockData';
 import { Event, EventType, AudienceGroup } from '@/types/events';
 import EventDetailModal from '@/components/EventDetailModal';
@@ -54,38 +54,321 @@ const EventCalendar = () => {
     
     return typeMatch && audienceMatch;
   });
+
+  // Navigation functions
+  const navigatePrevious = () => {
+    const newDate = new Date(date);
+    switch (view) {
+      case 'month':
+        newDate.setMonth(date.getMonth() - 1);
+        break;
+      case 'week':
+        newDate.setDate(date.getDate() - 7);
+        break;
+      case 'day':
+        newDate.setDate(date.getDate() - 1);
+        break;
+      default:
+        break;
+    }
+    setDate(newDate);
+  };
+
+  const navigateNext = () => {
+    const newDate = new Date(date);
+    switch (view) {
+      case 'month':
+        newDate.setMonth(date.getMonth() + 1);
+        break;
+      case 'week':
+        newDate.setDate(date.getDate() + 7);
+        break;
+      case 'day':
+        newDate.setDate(date.getDate() + 1);
+        break;
+      default:
+        break;
+    }
+    setDate(newDate);
+  };
+
+  // Get events for the current view
+  const getEventsForView = useMemo(() => {
+    let start, end, events;
+    
+    switch (view) {
+      case 'week':
+        start = startOfWeek(date);
+        end = endOfWeek(date);
+        events = filteredEvents.filter(event => {
+          const eventDate = new Date(event.startDateTime);
+          return eventDate >= start && eventDate <= end;
+        });
+        break;
+      case 'day':
+        start = startOfDay(date);
+        end = endOfDay(date);
+        events = filteredEvents.filter(event => {
+          const eventDate = new Date(event.startDateTime);
+          return isSameDay(eventDate, date);
+        });
+        break;
+      case 'list':
+        // For list view, show all events sorted by date
+        events = [...filteredEvents].sort((a, b) => 
+          new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime()
+        );
+        break;
+      default:
+        // Month view - handled separately in the render
+        events = filteredEvents;
+    }
+    
+    return events;
+  }, [filteredEvents, view, date]);
   
-  // Mock rendering of calendar cell with events
-  const renderEventCell = (day: Date) => {
-    const dayEvents = filteredEvents.filter(event => {
-      const eventDate = new Date(event.startDateTime);
-      return eventDate.getDate() === day.getDate() && 
-             eventDate.getMonth() === day.getMonth() && 
-             eventDate.getFullYear() === day.getFullYear();
-    });
-    
-    if (dayEvents.length === 0) return null;
-    
+  // Render event card function used in multiple views
+  const renderEventCard = (event: Event) => {
     return (
-      <div className="mt-1 max-h-24 overflow-y-auto space-y-1">
-        {dayEvents.map(event => (
-          <div 
-            key={event.id}
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedEvent(event);
-            }}
-            className={`
-              text-xs p-1 rounded cursor-pointer truncate
-              ${event.status === 'draft' ? 'border border-dashed border-primary' : ''}
-              ${new Date(event.startDateTime) < new Date() ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground'}
-            `}
-          >
-            {event.title}
-          </div>
-        ))}
+      <div 
+        key={event.id}
+        onClick={() => setSelectedEvent(event)}
+        className={`
+          p-2 mb-1 rounded cursor-pointer text-sm
+          ${event.status === 'draft' ? 'border border-dashed border-primary' : ''}
+          ${new Date(event.startDateTime) < new Date() ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground'}
+        `}
+      >
+        <div className="font-medium truncate">{event.title}</div>
+        <div className="text-xs">
+          {format(new Date(event.startDateTime), 'h:mm a')}
+          {!event.isAllDay && ` - ${format(new Date(event.endDateTime), 'h:mm a')}`}
+        </div>
       </div>
     );
+  };
+  
+  // Render day cell for month view
+  const renderDayCell = (day: Date) => {
+    const dayEvents = filteredEvents.filter(event => {
+      const eventDate = new Date(event.startDateTime);
+      return isSameDay(eventDate, day);
+    });
+    
+    const isCurrentMonth = isSameMonth(day, date);
+    const isToday = isSameDay(new Date(), day);
+    
+    return (
+      <div 
+        key={day.toString()}
+        className={`
+          bg-card min-h-[100px] p-2 hover:bg-muted/50 transition-colors
+          ${!isCurrentMonth ? 'text-muted-foreground bg-muted/30' : ''}
+          ${isToday ? 'bg-accent/50' : ''}
+        `}
+      >
+        <div className="font-medium text-sm">
+          {day.getDate()}
+        </div>
+        {isCurrentMonth && dayEvents.length > 0 && (
+          <div className="mt-1 max-h-24 overflow-y-auto space-y-1">
+            {dayEvents.map(event => (
+              <div 
+                key={event.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedEvent(event);
+                }}
+                className={`
+                  text-xs p-1 rounded cursor-pointer truncate
+                  ${event.status === 'draft' ? 'border border-dashed border-primary' : ''}
+                  ${new Date(event.startDateTime) < new Date() ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground'}
+                `}
+              >
+                {event.title}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+  
+  // Render week view
+  const renderWeekView = () => {
+    const startDate = startOfWeek(date);
+    const weekDays = eachDayOfInterval({
+      start: startDate,
+      end: endOfWeek(date)
+    });
+    
+    return (
+      <div className="space-y-2">
+        <div className="grid grid-cols-7 gap-px bg-border">
+          {weekDays.map((day) => (
+            <div key={day.toString()} className="bg-card p-2 text-center text-sm font-medium">
+              <div>{format(day, 'EEE')}</div>
+              <div className={`rounded-full w-8 h-8 flex items-center justify-center mx-auto ${isSameDay(day, new Date()) ? 'bg-accent text-accent-foreground' : ''}`}>
+                {format(day, 'd')}
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <div className="grid grid-cols-7 gap-px bg-border">
+          {weekDays.map((day) => {
+            const dayEvents = filteredEvents.filter(event => {
+              const eventDate = new Date(event.startDateTime);
+              return isSameDay(eventDate, day);
+            });
+            
+            return (
+              <div key={day.toString()} className="bg-card min-h-[200px] p-2">
+                {dayEvents.map(renderEventCard)}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+  
+  // Render day view
+  const renderDayView = () => {
+    const dayEvents = getEventsForView;
+    
+    return (
+      <div className="space-y-4">
+        <div className="text-center p-4">
+          <h3 className="text-xl font-semibold">{format(date, 'EEEE, MMMM d, yyyy')}</h3>
+        </div>
+        
+        <div className="bg-card p-4 rounded-md min-h-[400px]">
+          {dayEvents.length > 0 ? (
+            <div className="space-y-2">
+              {dayEvents.map(event => (
+                <div 
+                  key={event.id}
+                  className="flex p-3 border-l-4 border-primary hover:bg-muted/50 rounded-r cursor-pointer"
+                  onClick={() => setSelectedEvent(event)}
+                >
+                  <div className="flex-1">
+                    <div className="font-medium">{event.title}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {format(new Date(event.startDateTime), 'h:mm a')} - {format(new Date(event.endDateTime), 'h:mm a')}
+                    </div>
+                    <div className="text-sm mt-1 line-clamp-2">{event.description}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              No events scheduled for this day
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+  
+  // Render list view
+  const renderListView = () => {
+    const events = getEventsForView;
+    
+    // Group events by date
+    const eventsByDate: Record<string, Event[]> = {};
+    events.forEach(event => {
+      const dateKey = format(new Date(event.startDateTime), 'yyyy-MM-dd');
+      if (!eventsByDate[dateKey]) {
+        eventsByDate[dateKey] = [];
+      }
+      eventsByDate[dateKey].push(event);
+    });
+    
+    return (
+      <div className="space-y-6">
+        {Object.keys(eventsByDate).length > 0 ? (
+          Object.keys(eventsByDate).map(dateKey => {
+            const eventsForDate = eventsByDate[dateKey];
+            const dateObj = new Date(dateKey);
+            
+            return (
+              <div key={dateKey} className="space-y-2">
+                <div className="sticky top-0 bg-background p-2 font-medium text-sm flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${isSameDay(dateObj, new Date()) ? 'bg-primary' : 'bg-muted-foreground'}`}></div>
+                  {format(dateObj, 'EEEE, MMMM d, yyyy')}
+                </div>
+                
+                <div className="bg-card rounded-md overflow-hidden">
+                  {eventsForDate.map(event => (
+                    <div 
+                      key={event.id}
+                      className="p-3 border-b hover:bg-muted/50 cursor-pointer"
+                      onClick={() => setSelectedEvent(event)}
+                    >
+                      <div className="font-medium">{event.title}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {format(new Date(event.startDateTime), 'h:mm a')}
+                        {!event.isAllDay && ` - ${format(new Date(event.endDateTime), 'h:mm a')}`}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs px-2 py-0.5 bg-muted rounded-full">{event.eventType}</span>
+                        {event.audience.isEveryone ? (
+                          <span className="text-xs">For everyone</span>
+                        ) : (
+                          <span className="text-xs">{event.audience.groups.join(', ')}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="flex items-center justify-center p-8 text-muted-foreground">
+            No events found matching your filters
+          </div>
+        )}
+      </div>
+    );
+  };
+  
+  // Render month view (grid calendar)
+  const renderMonthView = () => {
+    const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+    const daysArray = Array.from({ length: 42 }, (_, i) => {
+      const day = i - firstDayOfMonth + 1;
+      return new Date(date.getFullYear(), date.getMonth(), day);
+    });
+    
+    return (
+      <div className="grid grid-cols-7 gap-px bg-border">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((dayName) => (
+          <div key={dayName} className="bg-card p-2 text-center text-sm font-medium">
+            {dayName}
+          </div>
+        ))}
+        
+        {daysArray.map(renderDayCell)}
+      </div>
+    );
+  };
+  
+  // Render different views based on the selected view
+  const renderView = () => {
+    switch (view) {
+      case 'week':
+        return renderWeekView();
+      case 'day':
+        return renderDayView();
+      case 'list':
+        return renderListView();
+      default:
+        return renderMonthView();
+    }
   };
   
   return (
@@ -168,23 +451,36 @@ const EventCalendar = () => {
                 Today
               </Button>
               
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="flex gap-2">
-                    <CalendarIcon className="h-4 w-4" /> 
-                    {format(date, 'MMMM yyyy')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(date) => date && setDate(date)}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+              <div className="flex items-center">
+                <Button variant="ghost" size="icon" onClick={navigatePrevious}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="flex gap-2">
+                      <CalendarIcon className="h-4 w-4" /> 
+                      {view === 'month' && format(date, 'MMMM yyyy')}
+                      {view === 'week' && `Week of ${format(startOfWeek(date), 'MMM d')} - ${format(endOfWeek(date), 'MMM d')}`}
+                      {view === 'day' && format(date, 'MMMM d, yyyy')}
+                      {view === 'list' && 'All Events'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={(date) => date && setDate(date)}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                
+                <Button variant="ghost" size="icon" onClick={navigateNext}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             
             <div className="flex items-center">
@@ -203,36 +499,7 @@ const EventCalendar = () => {
           </div>
         </CardHeader>
         <CardContent className="calendar-container">
-          <div className="grid grid-cols-7 gap-px bg-border">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-              <div key={day} className="bg-card p-2 text-center text-sm font-medium">
-                {day}
-              </div>
-            ))}
-            
-            {/* Generate calendar grid */}
-            {Array.from({ length: 35 }, (_, i) => {
-              const currentDate = new Date(date.getFullYear(), date.getMonth(), i - new Date(date.getFullYear(), date.getMonth(), 1).getDay() + 1);
-              const isCurrentMonth = currentDate.getMonth() === date.getMonth();
-              const isToday = new Date().toDateString() === currentDate.toDateString();
-              
-              return (
-                <div 
-                  key={i}
-                  className={`
-                    bg-card min-h-[100px] p-2 hover:bg-muted/50 transition-colors
-                    ${!isCurrentMonth ? 'text-muted-foreground bg-muted/30' : ''}
-                    ${isToday ? 'bg-accent/50' : ''}
-                  `}
-                >
-                  <div className="font-medium text-sm">
-                    {currentDate.getDate()}
-                  </div>
-                  {isCurrentMonth && renderEventCell(currentDate)}
-                </div>
-              );
-            })}
-          </div>
+          {renderView()}
         </CardContent>
       </Card>
       
