@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { 
@@ -20,11 +20,24 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 import { mockEvents, audienceSubgroups } from '@/data/mockData';
 
 const EventDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
   const event = mockEvents.find(e => e.id === id);
   
@@ -65,6 +78,45 @@ const EventDetails = () => {
     return event.audience.groups.join(', ');
   };
   
+  const handleEditEvent = () => {
+    navigate(`/event/${event.id}/edit`);
+  };
+  
+  const handleDeleteEvent = () => {
+    setDeleteDialogOpen(true);
+  };
+  
+  const confirmDeleteEvent = () => {
+    // In a real app, this would make an API call
+    console.log('Deleting event:', event.id);
+    toast({
+      title: "Event Deleted",
+      description: `${event.title} has been successfully deleted.`,
+    });
+    navigate('/calendar');
+  };
+  
+  const handleDuplicateEvent = () => {
+    // Navigate to create event with prefilled data
+    navigate('/create-event', { 
+      state: { 
+        duplicateFrom: event 
+      } 
+    });
+    toast({
+      title: "Event Duplicated",
+      description: "You can now edit the duplicated event.",
+    });
+  };
+  
+  const handleSendReminder = () => {
+    // In a real app, this would make an API call
+    toast({
+      title: "Reminder Sent",
+      description: `Reminder sent to all recipients for "${event.title}".`,
+    });
+  };
+  
   // Mock RSVP data
   const rsvpData = {
     attending: 28,
@@ -103,13 +155,13 @@ const EventDetails = () => {
                 </div>
                 
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => navigate(`/event/${event.id}/edit`)}>
+                  <Button variant="outline" size="sm" onClick={handleEditEvent}>
                     <Edit className="h-4 w-4 mr-1" /> Edit
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => console.log('Duplicate event')}>
+                  <Button variant="outline" size="sm" onClick={handleDuplicateEvent}>
                     <Copy className="h-4 w-4 mr-1" /> Duplicate
                   </Button>
-                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => console.log('Delete event')}>
+                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={handleDeleteEvent}>
                     <Trash2 className="h-4 w-4 mr-1" /> Delete
                   </Button>
                 </div>
@@ -255,16 +307,16 @@ const EventDetails = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <Button className="w-full justify-start" onClick={() => console.log('Send reminder')}>
+                <Button className="w-full justify-start" onClick={handleSendReminder}>
                   <Bell className="mr-2 h-4 w-4" /> Send Reminder
                 </Button>
-                <Button variant="outline" className="w-full justify-start" onClick={() => navigate(`/event/${event.id}/edit`)}>
+                <Button variant="outline" className="w-full justify-start" onClick={handleEditEvent}>
                   <Edit className="mr-2 h-4 w-4" /> Edit Event
                 </Button>
-                <Button variant="outline" className="w-full justify-start" onClick={() => console.log('Duplicate')}>
+                <Button variant="outline" className="w-full justify-start" onClick={handleDuplicateEvent}>
                   <Copy className="mr-2 h-4 w-4" /> Duplicate Event
                 </Button>
-                <Button variant="destructive" className="w-full justify-start" onClick={() => console.log('Delete')}>
+                <Button variant="destructive" className="w-full justify-start" onClick={handleDeleteEvent}>
                   <Trash2 className="mr-2 h-4 w-4" /> Delete Event
                 </Button>
               </div>
@@ -272,6 +324,24 @@ const EventDetails = () => {
           </Card>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Event</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{event.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteEvent} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
