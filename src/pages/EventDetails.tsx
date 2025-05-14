@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -79,7 +78,7 @@ const EventDetails = () => {
   };
   
   const handleEditEvent = () => {
-    navigate(`/event/${event.id}/edit`);
+    navigate('/create-event', { state: { editingEvent: event } });
   };
   
   const handleDeleteEvent = () => {

@@ -50,7 +50,8 @@ const EventDetailModal = ({ event, isOpen, onClose }: EventDetailModalProps) => 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
   const handleEdit = () => {
-    navigate(`/event/${event.id}/edit`);
+    // Navigate to create-event with the event data for editing
+    navigate('/create-event', { state: { editingEvent: event } });
     onClose();
   };
   
