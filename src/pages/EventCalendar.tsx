@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format, startOfWeek, endOfWeek, startOfDay, endOfDay, eachDayOfInterval, addDays, isSameMonth, isSameDay } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfDay, endOfDay, eachDayOfInterval, addDays, isSameMonth, isSameDay, startOfYear, endOfYear } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,8 @@ import {
   ChevronRight,
   Printer,
   Share,
-  FileText
+  FileText,
+  ListOrdered
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -45,7 +46,7 @@ import PrintableCalendar from '@/components/PrintableCalendar';
 const EventCalendar = () => {
   const navigate = useNavigate();
   const [date, setDate] = useState<Date>(new Date());
-  const [view, setView] = useState<'month' | 'week' | 'day' | 'list'>('month');
+  const [view, setView] = useState<'month' | 'week' | 'day' | 'list' | 'year'>('month');
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const printableCalendarRef = useRef<HTMLDivElement>(null);
   
@@ -175,51 +176,55 @@ const EventCalendar = () => {
                 border-radius: 3px;
                 margin-right: 5px;
               }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 20px;
+              }
+              th, td {
+                border: 1px solid #e2e8f0;
+                padding: 8px 12px;
+                text-align: left;
+              }
+              th {
+                background-color: #f7fafc;
+                font-weight: bold;
+              }
+              .month-section {
+                margin-bottom: 30px;
+                page-break-inside: avoid;
+              }
+              .month-section h3 {
+                color: #2d3748;
+                border-bottom: 2px solid #e2e8f0;
+                padding-bottom: 5px;
+                margin-bottom: 10px;
+              }
+              .yearly-view {
+                margin-top: 30px;
+              }
             </style>
           </head>
           <body>
-            <div class="calendar-header">
-              <h1>Academic Calendar</h1>
-              <p class="month-name">${format(date, 'MMMM yyyy')}</p>
-            </div>
-            ${renderPrintableCalendar()}
-            <div class="legend">
-              <div class="legend-item">
-                <div class="legend-color academic"></div>
-                <span>Academic</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-color holiday"></div>
-                <span>Holiday</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-color exam"></div>
-                <span>Exam</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-color meeting"></div>
-                <span>Meeting</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-color announcement"></div>
-                <span>Announcement</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-color pta"></div>
-                <span>PTA</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-color cultural"></div>
-                <span>Cultural Program</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-color other"></div>
-                <span>Other</span>
-              </div>
-            </div>
+            <div id="printable-content"></div>
           </body>
         </html>
       `);
+      
+      // Render the content based on current view
+      const ReactDOMServer = {
+        renderToString: (component) => {
+          if (view === 'year') {
+            return renderYearlyPrintView();
+          } else {
+            return renderMonthlyPrintView();
+          }
+        }
+      };
+      
+      // Use this to append the content
+      printWindow.document.getElementById('printable-content').innerHTML = 
+        view === 'year' ? renderYearlyPrintView() : renderMonthlyPrintView();
       
       printWindow.document.close();
       
@@ -236,8 +241,8 @@ const EventCalendar = () => {
     }
   };
   
-  // Render printable calendar
-  const renderPrintableCalendar = () => {
+  // Render monthly printable calendar HTML
+  const renderMonthlyPrintView = () => {
     const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
     const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
     const daysArray = Array.from({ length: 42 }, (_, i) => {
@@ -246,6 +251,11 @@ const EventCalendar = () => {
     });
     
     let calendarHTML = `
+      <div class="calendar-header">
+        <h1>Academic Calendar</h1>
+        <p class="month-name">${format(date, 'MMMM yyyy')}</p>
+      </div>
+
       <table class="calendar-grid">
         <thead>
           <tr>
@@ -294,9 +304,203 @@ const EventCalendar = () => {
     calendarHTML += `
         </tbody>
       </table>
+
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-color academic"></div>
+          <span>Academic</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color holiday"></div>
+          <span>Holiday</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color exam"></div>
+          <span>Exam</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color meeting"></div>
+          <span>Meeting</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color announcement"></div>
+          <span>Announcement</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color pta"></div>
+          <span>PTA</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color cultural"></div>
+          <span>Cultural Program</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color other"></div>
+          <span>Other</span>
+        </div>
+      </div>
     `;
     
     return calendarHTML;
+  };
+  
+  // Render yearly printable calendar HTML
+  const renderYearlyPrintView = () => {
+    const year = date.getFullYear();
+    const startDate = startOfYear(date);
+    const endDate = endOfYear(date);
+    
+    // Get all months in the year
+    const months = [];
+    for (let i = 0; i < 12; i++) {
+      months.push(new Date(year, i, 1));
+    }
+    
+    // Group events by month then by date for the whole year
+    const eventsByMonth = {};
+    
+    months.forEach(month => {
+      const monthKey = format(month, 'yyyy-MM');
+      eventsByMonth[monthKey] = {};
+    });
+    
+    filteredEvents.forEach(event => {
+      const eventDate = new Date(event.startDateTime);
+      if (eventDate.getFullYear() === year) {
+        const monthKey = format(eventDate, 'yyyy-MM');
+        const dateKey = format(eventDate, 'yyyy-MM-dd');
+        
+        if (!eventsByMonth[monthKey]) {
+          eventsByMonth[monthKey] = {};
+        }
+        
+        if (!eventsByMonth[monthKey][dateKey]) {
+          eventsByMonth[monthKey][dateKey] = [];
+        }
+        
+        eventsByMonth[monthKey][dateKey].push(event);
+      }
+    });
+    
+    let yearlyHTML = `
+      <div class="calendar-header">
+        <h1>Academic Calendar - Yearly View</h1>
+        <p class="month-name">${year}</p>
+      </div>
+    `;
+    
+    // For each month
+    months.forEach(month => {
+      const monthKey = format(month, 'yyyy-MM');
+      const monthEvents = eventsByMonth[monthKey];
+      const monthName = format(month, 'MMMM');
+      const hasEvents = Object.keys(monthEvents).length > 0;
+      
+      yearlyHTML += `
+        <div class="month-section">
+          <h3>${monthName}</h3>
+      `;
+      
+      if (hasEvents) {
+        yearlyHTML += `
+          <table>
+            <thead>
+              <tr>
+                <th width="16%">Date</th>
+                <th width="33%">Event</th>
+                <th width="16%">Time</th>
+                <th width="16%">Type</th>
+                <th width="16%">Location</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        // Sort dates within the month
+        const sortedDates = Object.keys(monthEvents).sort();
+        
+        sortedDates.forEach(dateKey => {
+          const eventsForDate = monthEvents[dateKey];
+          const dateObj = new Date(dateKey);
+          
+          eventsForDate.forEach((event, index) => {
+            const formattedDate = format(dateObj, 'd MMM, yyyy');
+            const eventTypeClass = event.eventType.toLowerCase().replace(/\s+/g, '-');
+            
+            yearlyHTML += '<tr>';
+            
+            // Only show date on the first event of the day
+            if (index === 0) {
+              yearlyHTML += `<td rowspan="${eventsForDate.length}">${formattedDate}</td>`;
+            }
+            
+            yearlyHTML += `
+              <td>${event.title}</td>
+              <td>${event.isAllDay ? 'All day' : `${format(new Date(event.startDateTime), 'h:mm a')} - ${format(new Date(event.endDateTime), 'h:mm a')}`}</td>
+              <td><span class="${eventTypeClass}">${event.eventType}</span></td>
+              <td>${event.location || 'N/A'}</td>
+            </tr>
+            `;
+          });
+        });
+        
+        yearlyHTML += `
+            </tbody>
+          </table>
+        `;
+      } else {
+        yearlyHTML += `
+          <div style="text-align: center; padding: 15px; color: #666; border: 1px solid #ddd; border-radius: 4px;">
+            No events scheduled for this month
+          </div>
+        `;
+      }
+      
+      yearlyHTML += '</div>';
+    });
+    
+    // Add legend
+    yearlyHTML += `
+      <div class="legend">
+        <h3>Event Types</h3>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+          <div class="legend-item">
+            <div class="legend-color academic"></div>
+            <span>Academic</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color holiday"></div>
+            <span>Holiday</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color exam"></div>
+            <span>Exam</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color meeting"></div>
+            <span>Meeting</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color announcement"></div>
+            <span>Announcement</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color pta"></div>
+            <span>PTA</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color cultural"></div>
+            <span>Cultural Program</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color other"></div>
+            <span>Other</span>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    return yearlyHTML;
   };
 
   // Share calendar functionality
@@ -305,7 +509,7 @@ const EventCalendar = () => {
     const calendarDescription = `${calendarTitle} - ${format(date, 'MMMM yyyy')}`;
     
     // Generate a text representation of events
-    let eventText = `${calendarTitle} - ${format(date, 'MMMM yyyy')}\n\n`;
+    let eventText = `${calendarTitle} - ${view === 'year' ? date.getFullYear() : format(date, 'MMMM yyyy')}\n\n`;
     
     // Group events by date
     const eventsByDate: Record<string, Event[]> = {};
@@ -319,8 +523,8 @@ const EventCalendar = () => {
     
     // Build text content from grouped events
     Object.keys(eventsByDate).sort().forEach(dateKey => {
-      const date = new Date(dateKey);
-      eventText += `${format(date, 'EEEE, MMMM d, yyyy')}\n`;
+      const dateObj = new Date(dateKey);
+      eventText += `${format(dateObj, 'EEEE, MMMM d, yyyy')}\n`;
       
       eventsByDate[dateKey].forEach(event => {
         eventText += `• ${event.title}`;
@@ -376,35 +580,111 @@ const EventCalendar = () => {
   // Export calendar as text file
   const handleExport = () => {
     const calendarTitle = "Academic Calendar";
-    const fileName = `${calendarTitle.replace(/\s+/g, '_')}_${format(date, 'MMM_yyyy')}.txt`;
+    const fileName = `${calendarTitle.replace(/\s+/g, '_')}_${view === 'year' ? date.getFullYear() : format(date, 'MMM_yyyy')}.txt`;
     
-    // Generate a text representation of events
-    let eventText = `${calendarTitle} - ${format(date, 'MMMM yyyy')}\n\n`;
+    // Generate a text representation of events based on view
+    let eventText = `${calendarTitle} - ${view === 'year' ? date.getFullYear() : format(date, 'MMMM yyyy')}\n\n`;
     
-    // Group events by date
-    const eventsByDate: Record<string, Event[]> = {};
-    filteredEvents.forEach(event => {
-      const dateKey = format(new Date(event.startDateTime), 'yyyy-MM-dd');
-      if (!eventsByDate[dateKey]) {
-        eventsByDate[dateKey] = [];
+    // For yearly view, group by month first
+    if (view === 'year') {
+      const year = date.getFullYear();
+      const months = [];
+      for (let i = 0; i < 12; i++) {
+        months.push(new Date(year, i, 1));
       }
-      eventsByDate[dateKey].push(event);
-    });
-    
-    // Build text content from grouped events
-    Object.keys(eventsByDate).sort().forEach(dateKey => {
-      const date = new Date(dateKey);
-      eventText += `${format(date, 'EEEE, MMMM d, yyyy')}\n`;
       
-      eventsByDate[dateKey].forEach(event => {
-        eventText += `• ${event.title}`;
-        if (!event.isAllDay) {
-          eventText += ` (${format(new Date(event.startDateTime), 'h:mm a')} - ${format(new Date(event.endDateTime), 'h:mm a')})`;
-        }
-        eventText += ` - ${event.eventType}\n`;
+      // Filter events for this year
+      const yearlyEvents = filteredEvents.filter(event => {
+        const eventDate = new Date(event.startDateTime);
+        return eventDate.getFullYear() === year;
       });
-      eventText += '\n';
-    });
+      
+      // Group by month then by date
+      const eventsByMonth: Record<string, Record<string, Event[]>> = {};
+      
+      months.forEach(month => {
+        const monthKey = format(month, 'yyyy-MM');
+        eventsByMonth[monthKey] = {};
+      });
+      
+      yearlyEvents.forEach(event => {
+        const eventDate = new Date(event.startDateTime);
+        const monthKey = format(eventDate, 'yyyy-MM');
+        const dateKey = format(eventDate, 'yyyy-MM-dd');
+        
+        if (!eventsByMonth[monthKey]) {
+          eventsByMonth[monthKey] = {};
+        }
+        
+        if (!eventsByMonth[monthKey][dateKey]) {
+          eventsByMonth[monthKey][dateKey] = [];
+        }
+        
+        eventsByMonth[monthKey][dateKey].push(event);
+      });
+      
+      // Build text content by month
+      months.forEach(month => {
+        const monthKey = format(month, 'yyyy-MM');
+        const monthEvents = eventsByMonth[monthKey];
+        const hasEvents = Object.keys(monthEvents).length > 0;
+        
+        eventText += `== ${format(month, 'MMMM')} ==\n\n`;
+        
+        if (hasEvents) {
+          Object.keys(monthEvents).sort().forEach(dateKey => {
+            const dateObj = new Date(dateKey);
+            eventText += `${format(dateObj, 'MMMM d, yyyy (EEEE)')}\n`;
+            
+            monthEvents[dateKey].forEach(event => {
+              eventText += `• ${event.title}`;
+              if (!event.isAllDay) {
+                eventText += ` (${format(new Date(event.startDateTime), 'h:mm a')} - ${format(new Date(event.endDateTime), 'h:mm a')})`;
+              }
+              eventText += ` - ${event.eventType}`;
+              if (event.location) {
+                eventText += ` - ${event.location}`;
+              }
+              eventText += '\n';
+            });
+            eventText += '\n';
+          });
+        } else {
+          eventText += 'No events scheduled for this month\n\n';
+        }
+      });
+      
+    } else {
+      // Monthly/weekly/daily view - group events by date
+      const eventsByDate: Record<string, Event[]> = {};
+      
+      filteredEvents.forEach(event => {
+        const dateKey = format(new Date(event.startDateTime), 'yyyy-MM-dd');
+        if (!eventsByDate[dateKey]) {
+          eventsByDate[dateKey] = [];
+        }
+        eventsByDate[dateKey].push(event);
+      });
+      
+      // Build text content from grouped events
+      Object.keys(eventsByDate).sort().forEach(dateKey => {
+        const dateObj = new Date(dateKey);
+        eventText += `${format(dateObj, 'EEEE, MMMM d, yyyy')}\n`;
+        
+        eventsByDate[dateKey].forEach(event => {
+          eventText += `• ${event.title}`;
+          if (!event.isAllDay) {
+            eventText += ` (${format(new Date(event.startDateTime), 'h:mm a')} - ${format(new Date(event.endDateTime), 'h:mm a')})`;
+          }
+          eventText += ` - ${event.eventType}`;
+          if (event.location) {
+            eventText += ` - ${event.location}`;
+          }
+          eventText += '\n';
+        });
+        eventText += '\n';
+      });
+    }
     
     // Create the file
     const blob = new Blob([eventText], { type: 'text/plain' });
@@ -440,6 +720,9 @@ const EventCalendar = () => {
       case 'day':
         newDate.setDate(date.getDate() - 1);
         break;
+      case 'year':
+        newDate.setFullYear(date.getFullYear() - 1);
+        break;
       default:
         break;
     }
@@ -457,6 +740,9 @@ const EventCalendar = () => {
         break;
       case 'day':
         newDate.setDate(date.getDate() + 1);
+        break;
+      case 'year':
+        newDate.setFullYear(date.getFullYear() + 1);
         break;
       default:
         break;
@@ -483,6 +769,13 @@ const EventCalendar = () => {
         events = filteredEvents.filter(event => {
           const eventDate = new Date(event.startDateTime);
           return isSameDay(eventDate, date);
+        });
+        break;
+      case 'year':
+        const year = date.getFullYear();
+        events = filteredEvents.filter(event => {
+          const eventDate = new Date(event.startDateTime);
+          return eventDate.getFullYear() === year;
         });
         break;
       case 'list':
@@ -707,6 +1000,113 @@ const EventCalendar = () => {
     );
   };
   
+  // Render year view
+  const renderYearView = () => {
+    const events = getEventsForView;
+    const year = date.getFullYear();
+    
+    // Group events by month and then by date
+    const months = [];
+    for (let i = 0; i < 12; i++) {
+      months.push(new Date(year, i, 1));
+    }
+    
+    const eventsByMonth: Record<string, Record<string, Event[]>> = {};
+    
+    months.forEach(month => {
+      const monthKey = format(month, 'yyyy-MM');
+      eventsByMonth[monthKey] = {};
+    });
+    
+    events.forEach(event => {
+      const eventDate = new Date(event.startDateTime);
+      const monthKey = format(eventDate, 'yyyy-MM');
+      const dateKey = format(eventDate, 'yyyy-MM-dd');
+      
+      if (!eventsByMonth[monthKey]) {
+        eventsByMonth[monthKey] = {};
+      }
+      
+      if (!eventsByMonth[monthKey][dateKey]) {
+        eventsByMonth[monthKey][dateKey] = [];
+      }
+      
+      eventsByMonth[monthKey][dateKey].push(event);
+    });
+    
+    return (
+      <div className="space-y-8">
+        <div className="text-center">
+          <h3 className="text-xl font-bold">{year} Academic Calendar</h3>
+          <p className="text-muted-foreground">Yearly overview of all events</p>
+        </div>
+        
+        {months.map(month => {
+          const monthKey = format(month, 'yyyy-MM');
+          const monthEvents = eventsByMonth[monthKey];
+          const hasEvents = Object.keys(monthEvents).length > 0;
+          
+          return (
+            <Card key={monthKey}>
+              <CardHeader className="pb-2">
+                <CardTitle>{format(month, 'MMMM')}</CardTitle>
+                <CardDescription>
+                  {Object.values(monthEvents).flat().length} events
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent>
+                {hasEvents ? (
+                  <div className="space-y-2">
+                    {Object.keys(monthEvents).sort().map(dateKey => {
+                      const dateObj = new Date(dateKey);
+                      const eventsForDate = monthEvents[dateKey];
+                      
+                      return (
+                        <div key={dateKey} className="border-l-2 border-primary pl-4 py-2">
+                          <div className="font-medium">
+                            {format(dateObj, 'EEEE, d')}
+                          </div>
+                          
+                          <div className="space-y-1 mt-1">
+                            {eventsForDate.map(event => (
+                              <div
+                                key={event.id}
+                                onClick={() => setSelectedEvent(event)}
+                                className="cursor-pointer hover:bg-muted p-2 rounded-md"
+                              >
+                                <div className="flex justify-between">
+                                  <span className="font-medium">{event.title}</span>
+                                  <Badge variant="outline">{event.eventType}</Badge>
+                                </div>
+                                
+                                <div className="text-sm text-muted-foreground">
+                                  {event.isAllDay ? 
+                                    'All day' : 
+                                    `${format(new Date(event.startDateTime), 'h:mm a')} - ${format(new Date(event.endDateTime), 'h:mm a')}`
+                                  }
+                                  {event.location && ` • ${event.location}`}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    No events scheduled for this month
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    );
+  };
+  
   // Render month view (grid calendar)
   const renderMonthView = () => {
     const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -738,6 +1138,8 @@ const EventCalendar = () => {
         return renderDayView();
       case 'list':
         return renderListView();
+      case 'year':
+        return renderYearView();
       default:
         return renderMonthView();
     }
@@ -883,6 +1285,7 @@ const EventCalendar = () => {
                       {view === 'week' && `Week of ${format(startOfWeek(date), 'MMM d')} - ${format(endOfWeek(date), 'MMM d')}`}
                       {view === 'day' && format(date, 'MMMM d, yyyy')}
                       {view === 'list' && 'All Events'}
+                      {view === 'year' && date.getFullYear()}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -912,6 +1315,12 @@ const EventCalendar = () => {
                   <SelectItem value="week">Week</SelectItem>
                   <SelectItem value="day">Day</SelectItem>
                   <SelectItem value="list">List</SelectItem>
+                  <SelectItem value="year">
+                    <div className="flex items-center">
+                      <ListOrdered className="mr-2 h-4 w-4" />
+                      Year
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -932,7 +1341,9 @@ const EventCalendar = () => {
       
       {/* Hidden printable calendar container */}
       <div className="hidden">
-        <div ref={printableCalendarRef} id="printable-calendar"></div>
+        <div ref={printableCalendarRef} id="printable-calendar">
+          <PrintableCalendar currentDate={date} events={filteredEvents} view={view === 'year' ? 'year' : 'month'} />
+        </div>
       </div>
     </div>
   );
