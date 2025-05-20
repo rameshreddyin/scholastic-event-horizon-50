@@ -37,6 +37,21 @@ export interface NoticeSettings {
   expiryDate: Date | null;
 }
 
+export interface EventNotification {
+  sendPush: boolean;
+  sendEmail: boolean;
+  showInCalendar: boolean;
+  reminderHours: number;
+  followUpNotification: boolean;
+  enableRSVP: boolean;
+}
+
+export interface EventAudience {
+  groups: AudienceGroup[];
+  subgroups: string[];
+  isEveryone: boolean;
+}
+
 export interface EventCreationData {
   title: string;
   description: string;
@@ -54,4 +69,6 @@ export interface Event extends EventCreationData {
   createdAt: Date;
   updatedAt: Date | null;
   status: 'draft' | 'published' | 'cancelled';
+  audience: EventAudience;
+  notification: EventNotification;
 }

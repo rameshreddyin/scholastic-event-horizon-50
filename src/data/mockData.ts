@@ -59,6 +59,12 @@ export const mockEvents: Event[] = [
       followUpNotification: false,
       enableRSVP: true
     },
+    noticeSettings: {
+      addToNoticeBoard: true,
+      audienceGroups: ['Parents', 'Teachers'],
+      noticePeriod: '1_day_before',
+      expiryDate: new Date('2025-05-20T17:00:00')
+    },
     createdBy: 'Admin',
     createdAt: new Date('2025-05-01T10:30:00'),
     updatedAt: null,
@@ -85,6 +91,12 @@ export const mockEvents: Event[] = [
       reminderHours: 48,
       followUpNotification: true,
       enableRSVP: false
+    },
+    noticeSettings: {
+      addToNoticeBoard: true,
+      audienceGroups: ['Parents', 'Students', 'Teachers', 'Staff'],
+      noticePeriod: '3_days_before',
+      expiryDate: new Date('2025-05-25T16:00:00')
     },
     createdBy: 'Sports Teacher',
     createdAt: new Date('2025-04-15T11:20:00'),
@@ -113,6 +125,12 @@ export const mockEvents: Event[] = [
       followUpNotification: false,
       enableRSVP: false
     },
+    noticeSettings: {
+      addToNoticeBoard: true,
+      audienceGroups: ['Students', 'Teachers', 'Parents'],
+      noticePeriod: '1_week_before',
+      expiryDate: new Date('2025-06-15T16:00:00')
+    },
     createdBy: 'Academic Coordinator',
     createdAt: new Date('2025-03-10T09:15:00'),
     updatedAt: null,
@@ -139,6 +157,12 @@ export const mockEvents: Event[] = [
       reminderHours: 24,
       followUpNotification: false,
       enableRSVP: true
+    },
+    noticeSettings: {
+      addToNoticeBoard: false,
+      audienceGroups: [],
+      noticePeriod: 'same_day',
+      expiryDate: null
     },
     createdBy: 'Principal',
     createdAt: new Date('2025-04-25T14:20:00'),
