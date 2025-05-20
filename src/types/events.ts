@@ -1,5 +1,6 @@
 
 export type EventType = 
+  | 'Academic'
   | 'Holiday' 
   | 'Exam' 
   | 'Meeting' 
@@ -16,25 +17,24 @@ export type AudienceGroup =
   | 'Administrators' 
   | 'Others';
 
+export type NoticePeriod =
+  | 'same_day'
+  | '1_day_before'
+  | '2_days_before'
+  | '3_days_before'
+  | '1_week_before';
+
 export interface AudienceSubgroup {
   id: string;
   name: string;
   group: AudienceGroup;
 }
 
-export interface EventAudience {
-  groups: AudienceGroup[];
-  subgroups: string[]; // IDs of subgroups
-  isEveryone: boolean;
-}
-
-export interface EventNotification {
-  sendPush: boolean;
-  sendEmail: boolean;
-  showInCalendar: boolean;
-  reminderHours: number | null;
-  followUpNotification: boolean;
-  enableRSVP: boolean;
+export interface NoticeSettings {
+  addToNoticeBoard: boolean;
+  audienceGroups: AudienceGroup[];
+  noticePeriod: NoticePeriod;
+  expiryDate: Date | null;
 }
 
 export interface EventCreationData {
@@ -44,8 +44,7 @@ export interface EventCreationData {
   isAllDay: boolean;
   startDateTime: Date;
   endDateTime: Date;
-  audience: EventAudience;
-  notification: EventNotification;
+  noticeSettings: NoticeSettings;
   isDraft: boolean;
 }
 

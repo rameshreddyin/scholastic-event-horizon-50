@@ -29,7 +29,6 @@ import {
   Clock, 
   Users, 
   Bell, 
-  Mail, 
   Edit, 
   Trash2,
   Copy,
@@ -43,6 +42,18 @@ interface EventDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+// Helper function to get notice period display text
+const getNoticePeriodDisplay = (period: string) => {
+  const periodMap: Record<string, string> = {
+    'same_day': 'Same day',
+    '1_day_before': '1 day before',
+    '2_days_before': '2 days before',
+    '3_days_before': '3 days before',
+    '1_week_before': '1 week before',
+  };
+  return periodMap[period] || period;
+};
 
 const EventDetailModal = ({ event, isOpen, onClose }: EventDetailModalProps) => {
   const navigate = useNavigate();
@@ -86,19 +97,11 @@ const EventDetailModal = ({ event, isOpen, onClose }: EventDetailModalProps) => 
   };
   
   const getAudienceDisplay = () => {
-    if (event.audience.isEveryone) {
-      return 'Everyone';
+    if (!event.noticeSettings?.audienceGroups?.length) {
+      return 'No audience selected';
     }
     
-    if (event.audience.subgroups.length > 0) {
-      const subgroups = audienceSubgroups.filter(sg => 
-        event.audience.subgroups.includes(sg.id)
-      );
-      
-      return subgroups.map(sg => sg.name).join(', ');
-    }
-    
-    return event.audience.groups.join(', ');
+    return event.noticeSettings.audienceGroups.join(', ');
   };
   
   return (
@@ -149,39 +152,29 @@ const EventDetailModal = ({ event, isOpen, onClose }: EventDetailModalProps) => 
 
             <Separator />
 
-            {/* Audience */}
-            <div>
-              <h4 className="text-sm font-medium mb-1 flex items-center gap-1">
-                <Users className="h-4 w-4" />
-                Audience
-              </h4>
-              <p className="text-sm text-muted-foreground">
-                {getAudienceDisplay()}
-              </p>
-            </div>
-
-            <Separator />
-
-            {/* Notifications */}
-            <div>
-              <h4 className="text-sm font-medium mb-2">Notification Settings</h4>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="flex items-center gap-1">
-                  <Bell className="h-3 w-3" />
-                  <span>Push Notification:</span>
-                  <span className={event.notification.sendPush ? 'text-primary' : 'text-muted-foreground'}>
-                    {event.notification.sendPush ? 'Yes' : 'No'}
-                  </span>
+            {/* Notice Board Information */}
+            {event.noticeSettings?.addToNoticeBoard && (
+              <>
+                <div>
+                  <h4 className="text-sm font-medium mb-1 flex items-center gap-1">
+                    <Users className="h-4 w-4" />
+                    Notice Board
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <p><span className="font-medium">Audience:</span> {getAudienceDisplay()}</p>
+                    <p>
+                      <span className="font-medium">Posting:</span> {getNoticePeriodDisplay(event.noticeSettings.noticePeriod)}
+                    </p>
+                    {event.noticeSettings.expiryDate && (
+                      <p>
+                        <span className="font-medium">Expires:</span> {format(new Date(event.noticeSettings.expiryDate), 'PPP')}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Mail className="h-3 w-3" />
-                  <span>Email Alert:</span>
-                  <span className={event.notification.sendEmail ? 'text-primary' : 'text-muted-foreground'}>
-                    {event.notification.sendEmail ? 'Yes' : 'No'}
-                  </span>
-                </div>
-              </div>
-            </div>
+                <Separator />
+              </>
+            )}
             
             {/* Creator info */}
             <div className="text-xs text-muted-foreground pt-2">

@@ -1,10 +1,9 @@
-
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { 
   Form,
   FormControl,
@@ -48,32 +47,39 @@ import {
   ArrowLeft,
   Save,
   CalendarPlus,
-  Clock
+  Clock,
+  Bell
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
   EventType, 
   AudienceGroup, 
   EventCreationData, 
-  EventAudience, 
-  EventNotification 
+  NoticeSettings,
+  NoticePeriod
 } from '@/types/events';
-import { audienceSubgroups } from '@/data/mockData';
 
 // Form steps
 const formSteps = [
   { id: 'details', title: 'Basic Details' },
   { id: 'scheduling', title: 'Scheduling' },
-  { id: 'audience', title: 'Audience' },
-  { id: 'notifications', title: 'Notifications' }
+  { id: 'notice', title: 'Notice Board' }
 ];
 
 const eventTypes: EventType[] = [
-  'Holiday', 'Exam', 'Meeting', 'Announcement', 'PTA', 'Cultural Program', 'Other'
+  'Academic', 'Holiday', 'Exam', 'Meeting', 'Announcement', 'PTA', 'Cultural Program', 'Other'
 ];
 
 const audienceGroups: AudienceGroup[] = [
   'Parents', 'Students', 'Teachers', 'Staff', 'Administrators', 'Others'
+];
+
+const noticePeriods: { value: NoticePeriod; label: string }[] = [
+  { value: 'same_day', label: 'Same day' },
+  { value: '1_day_before', label: '1 day before' },
+  { value: '2_days_before', label: '2 days before' },
+  { value: '3_days_before', label: '3 days before' },
+  { value: '1_week_before', label: '1 week before' },
 ];
 
 const CreateEvent = () => {
@@ -89,22 +95,15 @@ const CreateEvent = () => {
   const defaultValues: Partial<EventCreationData> = {
     title: duplicateEvent?.title || '',
     description: duplicateEvent?.description || '',
-    eventType: duplicateEvent?.eventType || 'Meeting',
+    eventType: duplicateEvent?.eventType || 'Academic',
     isAllDay: duplicateEvent?.isAllDay || false,
     startDateTime: duplicateEvent?.startDateTime || new Date(),
     endDateTime: duplicateEvent?.endDateTime || new Date(Date.now() + 60 * 60 * 1000), // 1 hour later
-    audience: duplicateEvent?.audience || {
-      groups: [],
-      subgroups: [],
-      isEveryone: false
-    },
-    notification: duplicateEvent?.notification || {
-      sendPush: true,
-      sendEmail: true,
-      showInCalendar: true,
-      reminderHours: 24,
-      followUpNotification: false,
-      enableRSVP: false
+    noticeSettings: duplicateEvent?.noticeSettings || {
+      addToNoticeBoard: false,
+      audienceGroups: [],
+      noticePeriod: '1_day_before',
+      expiryDate: null
     },
     isDraft: false
   };
@@ -113,22 +112,15 @@ const CreateEvent = () => {
   const formSchema = z.object({
     title: z.string().min(3, { message: 'Title must be at least 3 characters' }),
     description: z.string().optional(),
-    eventType: z.enum(['Holiday', 'Exam', 'Meeting', 'Announcement', 'PTA', 'Cultural Program', 'Other']),
+    eventType: z.enum(['Academic', 'Holiday', 'Exam', 'Meeting', 'Announcement', 'PTA', 'Cultural Program', 'Other']),
     isAllDay: z.boolean(),
     startDateTime: z.date(),
     endDateTime: z.date(),
-    audience: z.object({
-      groups: z.array(z.enum(['Parents', 'Students', 'Teachers', 'Staff', 'Administrators', 'Others'])),
-      subgroups: z.array(z.string()),
-      isEveryone: z.boolean()
-    }),
-    notification: z.object({
-      sendPush: z.boolean(),
-      sendEmail: z.boolean(),
-      showInCalendar: z.boolean(),
-      reminderHours: z.number().nullable(),
-      followUpNotification: z.boolean(),
-      enableRSVP: z.boolean()
+    noticeSettings: z.object({
+      addToNoticeBoard: z.boolean(),
+      audienceGroups: z.array(z.enum(['Parents', 'Students', 'Teachers', 'Staff', 'Administrators', 'Others'])),
+      noticePeriod: z.enum(['same_day', '1_day_before', '2_days_before', '3_days_before', '1_week_before']),
+      expiryDate: z.date().nullable()
     }),
     isDraft: z.boolean()
   }).refine(data => {
@@ -147,15 +139,17 @@ const CreateEvent = () => {
   
   const { watch, setValue } = form;
   
-  // Watch for audience changes
-  const audienceGroups = watch('audience.groups');
-  const isEveryone = watch('audience.isEveryone');
+  // Watch for changes
   const isAllDay = watch('isAllDay');
+  const addToNoticeBoard = watch('noticeSettings.addToNoticeBoard');
+  const startDateTime = watch('startDateTime');
   
-  // Get relevant subgroups based on selected groups
-  const relevantSubgroups = audienceSubgroups.filter(sg => 
-    audienceGroups.includes(sg.group)
-  );
+  // Set default expiry date when start date changes
+  React.useEffect(() => {
+    if (!form.getValues('noticeSettings.expiryDate')) {
+      setValue('noticeSettings.expiryDate', startDateTime);
+    }
+  }, [startDateTime, setValue]);
   
   // Fixed submission handler to correctly handle the isDraft parameter
   const onSubmit = (data: z.infer<typeof formSchema>, isDraftParam: boolean = false) => {
@@ -163,7 +157,7 @@ const CreateEvent = () => {
     const finalData = { ...data, isDraft: isDraftParam };
     console.log('Form submitted:', finalData);
     
-    toast.success(isDraftParam ? 'Event draft saved successfully' : 'Event created successfully', {
+    toast.success(isDraftParam ? 'Academic calendar event draft saved successfully' : 'Academic calendar event created successfully', {
       description: isDraftParam ? 'You can edit it later.' : 'The event has been published.',
     });
     
@@ -175,8 +169,7 @@ const CreateEvent = () => {
     const fields = [
       ['title', 'eventType'],
       ['startDateTime', 'endDateTime'],
-      ['audience'],
-      ['notification']
+      ['noticeSettings']
     ][step];
     
     const isValid = fields.every(field => {
@@ -203,9 +196,7 @@ const CreateEvent = () => {
       case 1:
         return renderSchedulingStep();
       case 2:
-        return renderAudienceStep();
-      case 3:
-        return renderNotificationsStep();
+        return renderNoticeStep();
       default:
         return renderBasicDetailsStep();
     }
@@ -347,6 +338,9 @@ const CreateEvent = () => {
                             newEndDate.setHours(newEndDate.getHours() + 1);
                             form.setValue('endDateTime', newEndDate);
                           }
+
+                          // Update notice expiry date to match event end date by default
+                          form.setValue('noticeSettings.expiryDate', form.getValues('endDateTime'));
                         }
                       }}
                       initialFocus
@@ -420,6 +414,9 @@ const CreateEvent = () => {
                             newDate.setMinutes(field.value.getMinutes());
                           }
                           field.onChange(newDate);
+                          
+                          // Update notice expiry date to match event end date by default
+                          form.setValue('noticeSettings.expiryDate', newDate);
                         }
                       }}
                       disabled={(date) => {
@@ -472,57 +469,51 @@ const CreateEvent = () => {
     );
   };
   
-  const renderAudienceStep = () => {
+  const renderNoticeStep = () => {
     return (
       <>
         <FormField
           control={form.control}
-          name="audience.isEveryone"
+          name="noticeSettings.addToNoticeBoard"
           render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 mb-6">
               <div className="space-y-0.5">
-                <FormLabel className="text-base">This event is for everyone</FormLabel>
+                <FormLabel className="text-base">Add to Notice Board</FormLabel>
                 <FormDescription>
-                  Toggle if this event applies to all users in the system
+                  Share this event on the notice board
                 </FormDescription>
               </div>
               <FormControl>
                 <Switch
                   checked={field.value}
-                  onCheckedChange={(checked) => {
-                    field.onChange(checked);
-                    if (checked) {
-                      setValue('audience.groups', ['Parents', 'Students', 'Teachers', 'Staff', 'Administrators', 'Others']);
-                      setValue('audience.subgroups', []);
-                    }
-                  }}
+                  onCheckedChange={field.onChange}
                 />
               </FormControl>
             </FormItem>
           )}
         />
         
-        {!isEveryone && (
+        {addToNoticeBoard && (
           <>
             <FormField
               control={form.control}
-              name="audience.groups"
+              name="noticeSettings.audienceGroups"
               render={() => (
                 <FormItem>
                   <div className="mb-4">
-                    <FormLabel className="text-base">User Groups</FormLabel>
+                    <FormLabel className="text-base">Who is this notice for?</FormLabel>
                     <FormDescription>
-                      Select the main audience groups for this event
+                      Select the audience for this notice
                     </FormDescription>
                   </div>
                   <div className="grid sm:grid-cols-3 gap-2">
-                    {['Parents', 'Students', 'Teachers', 'Staff', 'Administrators', 'Others'].map(group => (
+                    {audienceGroups.map(group => (
                       <FormField
                         key={group}
                         control={form.control}
-                        name="audience.groups"
+                        name="noticeSettings.audienceGroups"
                         render={({ field }) => {
-                          const isSelected = field.value?.includes(group as AudienceGroup);
+                          const isSelected = field.value?.includes(group);
                           return (
                             <FormItem className="flex flex-row items-center space-x-3 space-y-0">
                               <FormControl>
@@ -531,16 +522,9 @@ const CreateEvent = () => {
                                   onCheckedChange={(checked) => {
                                     const currentValue = [...field.value];
                                     if (checked) {
-                                      // Add group
-                                      field.onChange([...currentValue, group as AudienceGroup]);
+                                      field.onChange([...currentValue, group]);
                                     } else {
-                                      // Remove group and its subgroups
                                       field.onChange(currentValue.filter(item => item !== group));
-                                      const subgroups = form.getValues('audience.subgroups');
-                                      const filteredSubgroups = subgroups.filter(s => 
-                                        !audienceSubgroups.find(sg => sg.id === s && sg.group === group)
-                                      );
-                                      setValue('audience.subgroups', filteredSubgroups);
                                     }
                                   }}
                                 />
@@ -558,287 +542,112 @@ const CreateEvent = () => {
               )}
             />
             
-            {audienceGroups.length > 0 && (
-              <FormField
-                control={form.control}
-                name="audience.subgroups"
-                render={({ field }) => (
-                  <FormItem className="space-y-4 mt-6">
-                    <div>
-                      <FormLabel className="text-base">Specific Groups</FormLabel>
-                      <FormDescription>
-                        Select specific subgroups or leave empty to include all
-                      </FormDescription>
-                    </div>
-                    
-                    <div className="border rounded-md p-4 space-y-6">
-                      {audienceGroups.map(group => {
-                        const subgroups = audienceSubgroups.filter(sg => sg.group === group);
-                        if (subgroups.length === 0) return null;
-                        
-                        return (
-                          <div key={group} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <h4 className="font-medium">{group}</h4>
-                              <div className="flex gap-2 items-center">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    const subgroupIds = subgroups.map(sg => sg.id);
-                                    const currentSubgroups = [...field.value];
-                                    
-                                    // Check if all are selected
-                                    const allSelected = subgroupIds.every(id => currentSubgroups.includes(id));
-                                    
-                                    if (allSelected) {
-                                      // Deselect all
-                                      field.onChange(currentSubgroups.filter(id => !subgroupIds.includes(id)));
-                                    } else {
-                                      // Select all
-                                      const newSubgroups = [...currentSubgroups];
-                                      subgroupIds.forEach(id => {
-                                        if (!newSubgroups.includes(id)) {
-                                          newSubgroups.push(id);
-                                        }
-                                      });
-                                      field.onChange(newSubgroups);
-                                    }
-                                  }}
-                                >
-                                  {subgroups.every(sg => field.value.includes(sg.id)) ? 'Deselect All' : 'Select All'}
-                                </Button>
-                              </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-2 ml-2">
-                              {subgroups.map(subgroup => (
-                                <div key={subgroup.id} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={subgroup.id}
-                                    checked={field.value.includes(subgroup.id)}
-                                    onCheckedChange={(checked) => {
-                                      const currentValue = [...field.value];
-                                      if (checked) {
-                                        field.onChange([...currentValue, subgroup.id]);
-                                      } else {
-                                        field.onChange(currentValue.filter(id => id !== subgroup.id));
-                                      }
-                                    }}
-                                  />
-                                  <label
-                                    htmlFor={subgroup.id}
-                                    className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                  >
-                                    {subgroup.name}
-                                  </label>
-                                </div>
-                              ))}
-                            </div>
+            <FormField
+              control={form.control}
+              name="noticeSettings.noticePeriod"
+              render={({ field }) => (
+                <FormItem className="mt-6">
+                  <FormLabel>When to add to Notice Board</FormLabel>
+                  <FormDescription>
+                    Choose when the notice should appear on the board
+                  </FormDescription>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select notice timing" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {noticePeriods.map(period => (
+                        <SelectItem key={period.value} value={period.value}>{period.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="noticeSettings.expiryDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col mt-6">
+                  <FormLabel>Notice Expiry Date</FormLabel>
+                  <FormDescription>
+                    By default, notice expires when the event ends. You can set a custom expiry date.
+                  </FormDescription>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full pl-3 text-left font-normal flex justify-between",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          <div className="flex gap-2 items-center">
+                            <Bell className="h-4 w-4" />
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>Set expiry date</span>
+                            )}
                           </div>
-                        );
-                      })}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value || undefined}
+                        onSelect={(date) => field.onChange(date)}
+                        disabled={(date) => {
+                          // Disable dates before event start date
+                          const startDate = form.getValues('startDateTime');
+                          return date < startDate;
+                        }}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </>
         )}
         
-        {/* Audience Summary */}
-        <div className="mt-6 bg-muted/20 p-4 rounded-md">
-          <h4 className="font-medium mb-2">Audience Summary</h4>
-          {isEveryone ? (
-            <p className="text-sm">This event will be visible to everyone in the system.</p>
-          ) : audienceGroups.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No audience selected. Please select at least one group.</p>
-          ) : (
+        {/* Notice Summary */}
+        {addToNoticeBoard && (
+          <div className="mt-6 bg-muted/20 p-4 rounded-md">
+            <h4 className="font-medium mb-2">Notice Board Summary</h4>
             <div className="text-sm space-y-2">
-              <p>This event will be visible to:</p>
-              <ul className="list-disc list-inside">
-                {audienceGroups.map(group => (
-                  <li key={group}>
-                    {group}
-                    {form.watch('audience.subgroups').length > 0 && (
-                      <ul className="list-circle list-inside ml-4 text-muted-foreground">
-                        {audienceSubgroups
-                          .filter(sg => sg.group === group && form.watch('audience.subgroups').includes(sg.id))
-                          .map(sg => (
-                            <li key={sg.id}>{sg.name}</li>
-                          ))}
-                      </ul>
-                    )}
-                  </li>
-                ))}
+              <p>This event will be visible on the notice board:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>
+                  <strong>Audience:</strong> {form.watch('noticeSettings.audienceGroups').length 
+                    ? form.watch('noticeSettings.audienceGroups').join(', ') 
+                    : 'No audience selected'}
+                </li>
+                <li>
+                  <strong>Timing:</strong> {
+                    noticePeriods.find(p => p.value === form.watch('noticeSettings.noticePeriod'))?.label || 'Same day'
+                  }
+                </li>
+                <li>
+                  <strong>Expires:</strong> {
+                    form.watch('noticeSettings.expiryDate') 
+                      ? format(form.watch('noticeSettings.expiryDate'), 'PPP') 
+                      : 'Same as event end date'
+                  }
+                </li>
               </ul>
             </div>
-          )}
-        </div>
-      </>
-    );
-  };
-  
-  const renderNotificationsStep = () => {
-    const reminderOptions = [
-      { value: null, label: 'No reminder' },
-      { value: 1, label: '1 hour before' },
-      { value: 3, label: '3 hours before' },
-      { value: 24, label: '1 day before' },
-      { value: 48, label: '2 days before' },
-      { value: 72, label: '3 days before' },
-      { value: 168, label: '1 week before' }
-    ];
-    
-    return (
-      <>
-        <div className="space-y-6">
-          <FormField
-            control={form.control}
-            name="notification.sendPush"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                <div className="space-y-0.5">
-                  <FormLabel className="text-base">Send Push Notification</FormLabel>
-                  <FormDescription>
-                    Notify users via push notification
-                  </FormDescription>
-                </div>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="notification.sendEmail"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                <div className="space-y-0.5">
-                  <FormLabel className="text-base">Send Email Alert</FormLabel>
-                  <FormDescription>
-                    Notify users via email
-                  </FormDescription>
-                </div>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="notification.showInCalendar"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                <div className="space-y-0.5">
-                  <FormLabel className="text-base">Show in Calendar</FormLabel>
-                  <FormDescription>
-                    Display this event in the calendar view
-                  </FormDescription>
-                </div>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-          
-          <Separator />
-          
-          <FormField
-            control={form.control}
-            name="notification.reminderHours"
-            render={({ field }) => (
-              <FormItem className="space-y-2">
-                <FormLabel>Reminder</FormLabel>
-                <FormDescription>
-                  Send a reminder before the event
-                </FormDescription>
-                <FormControl>
-                  <RadioGroup
-                    onValueChange={(value) => field.onChange(value === 'null' ? null : parseInt(value))}
-                    defaultValue={field.value === null ? 'null' : field.value.toString()}
-                    className="flex flex-col space-y-1"
-                  >
-                    {reminderOptions.map(option => (
-                      <FormItem
-                        key={option.value === null ? 'null' : option.value.toString()}
-                        className="flex items-center space-x-3 space-y-0"
-                      >
-                        <FormControl>
-                          <RadioGroupItem
-                            value={option.value === null ? 'null' : option.value.toString()}
-                          />
-                        </FormControl>
-                        <FormLabel className="font-normal">
-                          {option.label}
-                        </FormLabel>
-                      </FormItem>
-                    ))}
-                  </RadioGroup>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="notification.followUpNotification"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                <div className="space-y-0.5">
-                  <FormLabel className="text-base">Send Follow-up Notification</FormLabel>
-                  <FormDescription>
-                    Send a follow-up notification after the event
-                  </FormDescription>
-                </div>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={form.control}
-            name="notification.enableRSVP"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                <div className="space-y-0.5">
-                  <FormLabel className="text-base">Enable RSVP</FormLabel>
-                  <FormDescription>
-                    Allow users to RSVP to this event
-                  </FormDescription>
-                </div>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-        </div>
+          </div>
+        )}
       </>
     );
   };
@@ -854,8 +663,8 @@ const CreateEvent = () => {
         Back
       </Button>
       
-      <h1 className="text-2xl font-bold mb-2">Create Event</h1>
-      <p className="text-muted-foreground mb-6">Fill out the form below to create a new event</p>
+      <h1 className="text-2xl font-bold mb-2">Create Academic Calendar Event</h1>
+      <p className="text-muted-foreground mb-6">Fill out the form below to create a new academic calendar event</p>
       
       {/* Progress indicator */}
       <div className="mb-8 space-y-2">
@@ -897,10 +706,9 @@ const CreateEvent = () => {
         <CardHeader>
           <CardTitle>{formSteps[step].title}</CardTitle>
           <CardDescription>
-            {step === 0 && "Enter the basic details for your event"}
+            {step === 0 && "Enter the basic details for your academic calendar event"}
             {step === 1 && "Set when your event will take place"}
-            {step === 2 && "Choose who should see this event"}
-            {step === 3 && "Configure notification preferences"}
+            {step === 2 && "Configure notice board settings"}
           </CardDescription>
         </CardHeader>
         <Form {...form}>
@@ -936,7 +744,7 @@ const CreateEvent = () => {
               ) : (
                 <Button type="button" onClick={() => onSubmit(form.getValues(), false)} className="gap-2">
                   <CalendarPlus className="h-4 w-4" />
-                  Create Event
+                  Save to Academic Calendar
                 </Button>
               )}
             </CardFooter>
